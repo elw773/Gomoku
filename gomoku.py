@@ -15,7 +15,7 @@ def is_empty(board):
             if square != " ":
                 return False
     return True
-    
+
 def get_opposite(col):
     return "w" if col == "b" else "b"
 
@@ -38,7 +38,7 @@ def is_bounded(board, y_end, x_end, length, d_y, d_x):
     elif not start_blocked and not end_blocked:
         return "OPEN"
     return "SEMIOPEN"
-    
+
 def detect_row(board, col, y_start, x_start, length, d_y, d_x):
     open_seq_count, semi_open_seq_count = 0, 0
     y, x = y_start, x_start
@@ -58,7 +58,7 @@ def detect_row(board, col, y_start, x_start, length, d_y, d_x):
         x += d_x
 
     return open_seq_count, semi_open_seq_count
-    
+
 def detect_rows(board, col, length):
     open_seq_count, semi_open_seq_count = 0, 0
     y_size = len(board)
@@ -77,7 +77,8 @@ def detect_rows(board, col, length):
                 open_seq_count += opens
                 semi_open_seq_count += semi_opens
     return open_seq_count, semi_open_seq_count
-    
+
+
 def search_max(board):
     move_y, move_x, max_score = 0, 0, -100000000000000000000000000000000
     for y in range(len(board)):
@@ -90,33 +91,34 @@ def search_max(board):
                 board[y][x] = " "
 
     return move_y, move_x
-    
+
+MAX_SCORE = 10000000
+
 def score(board):
-    MAX_SCORE = 100000
-    
+
     open_b = {}
     semi_open_b = {}
     open_w = {}
     semi_open_w = {}
-    
+
     for i in range(2, 6):
         open_b[i], semi_open_b[i] = detect_rows(board, "b", i)
         open_w[i], semi_open_w[i] = detect_rows(board, "w", i)
-        
-    
+
+
     if open_b[5] >= 1 or semi_open_b[5] >= 1:
         return MAX_SCORE
-    
+
     elif open_w[5] >= 1 or semi_open_w[5] >= 1:
         return -MAX_SCORE
-        
-    return (-10000 * (open_w[4] + semi_open_w[4])+ 
-            500  * open_b[4]                     + 
-            50   * semi_open_b[4]                + 
-            -100  * open_w[3]                    + 
-            -30   * semi_open_w[3]               + 
-            50   * open_b[3]                     + 
-            10   * semi_open_b[3]                +  
+
+    return (-10000 * (open_w[4] + semi_open_w[4])+
+            500  * open_b[4]                     +
+            50   * semi_open_b[4]                +
+            -100  * open_w[3]                    +
+            -30   * semi_open_w[3]               +
+            50   * open_b[3]                     +
+            10   * semi_open_b[3]                +
             open_b[2] + semi_open_b[2] - open_w[2] - semi_open_w[2])
 
 
@@ -135,88 +137,101 @@ def is_win(board):
 
 
 def print_board(board):
-    
     s = "*"
     for i in range(len(board[0])-1):
         s += str(i%10) + "|"
     s += str((len(board[0])-1)%10)
     s += "*\n"
-    
+
     for i in range(len(board)):
         s += str(i%10)
         for j in range(len(board[0])-1):
             s += str(board[i][j]) + "|"
-        s += str(board[i][len(board[0])-1]) 
-    
+        s += str(board[i][len(board[0])-1])
+
         s += "*\n"
     s += (len(board[0])*2 + 1)*"*"
-    
+
     print(s)
-    
+
 
 def make_empty_board(sz):
     board = []
     for i in range(sz):
         board.append([" "]*sz)
     return board
-                
+
 
 
 def analysis(board):
     for c, full_name in [["b", "Black"], ["w", "White"]]:
-        print("%s stones" % (full_name))
+        #print("%s stones" % (full_name))
         for i in range(2, 6):
             open, semi_open = detect_rows(board, c, i);
-            print("Open rows of length %d: %d" % (i, open))
-            print("Semi-open rows of length %d: %d" % (i, semi_open))
-        
-    
-    
+            #print("Open rows of length %d: %d" % (i, open))
+            #print("Semi-open rows of length %d: %d" % (i, semi_open))
 
-        
-    
+
+
+
+def place_random(board, col):
+    import random
+    x = random.randint(0, 7)
+    y = random.randint(0, 7)
+    while(board[y][x] != ' '):
+        x = random.randint(0, 7)
+        y = random.randint(0, 7)
+    board[y][x] = col
+
+
 def play_gomoku(board_size):
+    import ai
     board = make_empty_board(board_size)
     board_height = len(board)
     board_width = len(board[0])
-    
+    place_random(board, "b")
+    place_random(board, "w")
+    place_random(board, "b")
+    place_random(board, "w")
+
     while True:
-        print_board(board)
+        #print_board(board)
         if is_empty(board):
             move_y = board_height // 2
             move_x = board_width // 2
         else:
             move_y, move_x = search_max(board)
-            
+
         print("Computer move: (%d, %d)" % (move_y, move_x))
+        #print(ai.move(board, "b"))
         board[move_y][move_x] = "b"
         print_board(board)
-        analysis(board)
-        
+        #analysis(board)
+
         game_res = is_win(board)
         if game_res in ["White won", "Black won", "Draw"]:
             return game_res
-            
-            
-        
-        
-        
+
+
+
         print("Your move:")
-        move_y = int(input("y coord: "))
-        move_x = int(input("x coord: "))
+        move_y, move_x = ai.move(board, "w")
+        print(move_y, move_x)
+        #move_y = int(input("y coord: "))
+        #move_x = int(input("x coord: "))
         board[move_y][move_x] = "w"
         print_board(board)
-        analysis(board)
-        
+        #analysis(board)
+
         game_res = is_win(board)
         if game_res in ["White won", "Black won", "Draw"]:
             return game_res
-        
-            
-            
+
+
+
 def put_seq_on_board(board, y, x, d_y, d_x, length, col):
     for i in range(length):
-        board[y][x] = col        
+        board[y][x] = col
         y += d_y
         x += d_x
 
@@ -233,7 +248,7 @@ def test_is_bounded():
     x = 5; y = 1; d_x = 0; d_y = 1; length = 3
     put_seq_on_board(board, y, x, d_y, d_x, length, "w")
     print_board(board)
-    
+
     y_end = 3
     x_end = 5
 
@@ -291,7 +306,7 @@ def some_tests():
     put_seq_on_board(board, y, x, d_y, d_x, length, "w")
     print_board(board)
     analysis(board)
-    
+
     # Expected output:
     #       *0|1|2|3|4|5|6|7*
     #       0 | | | | |w|b| *
@@ -321,13 +336,13 @@ def some_tests():
     #       Semi-open rows of length 4: 0
     #       Open rows of length 5: 0
     #       Semi-open rows of length 5: 0
-    
+
     y = 3; x = 5; d_x = -1; d_y = 1; length = 2
-    
+
     put_seq_on_board(board, y, x, d_y, d_x, length, "b")
     print_board(board)
     analysis(board)
-    
+
     # Expected output:
     #        *0|1|2|3|4|5|6|7*
     #        0 | | | | |w|b| *
@@ -358,13 +373,13 @@ def some_tests():
     #         Semi-open rows of length 4: 0
     #         Open rows of length 5: 0
     #         Semi-open rows of length 5: 0
-    #     
-    
+    #
+
     y = 5; x = 3; d_x = -1; d_y = 1; length = 1
     put_seq_on_board(board, y, x, d_y, d_x, length, "b");
     print_board(board);
     analysis(board);
-    
+
     #        Expected output:
     #           *0|1|2|3|4|5|6|7*
     #           0 | | | | |w|b| *
@@ -376,8 +391,8 @@ def some_tests():
     #           6 | |w| | | | | *
     #           7 | |w| | | | | *
     #           *****************
-    #        
-    #        
+    #
+    #
     #        Black stones:
     #        Open rows of length 2: 0
     #        Semi-open rows of length 2: 0
@@ -398,8 +413,7 @@ def some_tests():
     #        Semi-open rows of length 5: 0
 
 
-  
-            
+
+
 if __name__ == '__main__':
-    play_gomoku(8)
-    
+    print(play_gomoku(8))
