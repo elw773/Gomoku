@@ -98,6 +98,7 @@ def minimax(y, x, my_map, other_map, prev_score, depth, me):
         my_map[y][x] = 0
         return best
 
+
 def relevant_minimax(y, x, my_map, other_map, prev_score, depth, me):
     delta = 0
     score = prev_score
@@ -117,7 +118,7 @@ def relevant_minimax(y, x, my_map, other_map, prev_score, depth, me):
         for ny in range(len(my_map)):
             for nx in range(len(my_map[ny])):
                 if not my_map[ny][nx] and not other_map[ny][nx] and any(my_map[ny+dy][nx+dx] or other_map[ny+dy][nx+dx] for dy, dx in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)) if 0 <= ny+dy < 8 and 0 <= nx+dx < 8):
-                    best = max(best, minimax(ny, nx, my_map, other_map, score, depth-1, False))
+                    best = max(best, relevant_minimax(ny, nx, my_map, other_map, score, depth-1, False))
         other_map[y][x] = 0
         return best
     else:
@@ -126,10 +127,99 @@ def relevant_minimax(y, x, my_map, other_map, prev_score, depth, me):
         for ny in range(len(my_map)):
             for nx in range(len(my_map[ny])):
                 if not my_map[ny][nx] and not other_map[ny][nx] and any(my_map[ny+dy][nx+dx] or other_map[ny+dy][nx+dx] for dy, dx in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)) if 0 <= ny+dy < 8 and 0 <= nx+dx < 8):
-                    best = min(best, minimax(ny, nx, my_map, other_map, score, depth-1, True))
+                    best = min(best, relevant_minimax(ny, nx, my_map, other_map, score, depth-1, True))
         my_map[y][x] = 0
         return best
 
+
+def alphabeta(y, x, my_map, other_map, prev_score, depth, alpha, beta, me):
+    delta = 0
+    score = prev_score
+    if me:
+        delta = score_delta(y, x, other_map, my_map)
+        score = (0 if delta == WIN_SCORE else prev_score) - delta
+    else:
+        delta = score_delta(y, x, my_map, other_map)
+        score = (0 if delta == WIN_SCORE else prev_score) + delta
+
+    if depth == 0 or score == WIN_SCORE or score == -WIN_SCORE:
+        return score
+
+    if me:
+        other_map[y][x] = 1
+        best = -WIN_SCORE
+        for ny in range(len(my_map)):
+            for nx in range(len(my_map[ny])):
+                if not my_map[ny][nx] and not other_map[ny][nx]:
+                    best = max(best, alphabeta(ny, nx, my_map, other_map, score, depth-1, alpha, beta, False))
+                    alpha = max(alpha, best)
+                    if alpha >= beta:
+                        other_map[y][x] = 0
+                        return best
+        other_map[y][x] = 0
+        return best
+    else:
+        my_map[y][x] = 1
+        best = WIN_SCORE
+        for ny in range(len(my_map)):
+            for nx in range(len(my_map[ny])):
+                if not my_map[ny][nx] and not other_map[ny][nx]:
+                    best = min(best, alphabeta(ny, nx, my_map, other_map, score, depth-1, alpha, beta, True))
+                    beta = min(beta, best)
+                    if beta <= alpha:
+                        my_map[y][x] = 0
+                        return best
+        my_map[y][x] = 0
+        return best
+
+
+def minimax_move(my_map, other_map):
+    start = timer()
+    best = -WIN_SCORE
+    for y in range(len(my_map)):
+        for x in range(len(my_map[y])):
+            if not my_map[y][x] and not other_map[y][x]:
+                sd = minimax(y, x, my_map, other_map, 0, 2, False)
+                if(sd > best):
+                    move_x, move_y = x, y
+                    best = sd
+
+    print(timer() - start)
+    return move_y, move_x
+
+
+def rel_minimax_move(my_map, other_map):
+    start = timer()
+    best = -WIN_SCORE
+    for y in range(len(my_map)):
+        for x in range(len(my_map[y])):
+            if not my_map[y][x] and not other_map[y][x] and any(my_map[y+dy][x+dx] or other_map[y+dy][x+dx] for dy, dx in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)) if 0 <= y+dy < 8 and 0 <= x+dx < 8):
+                sd = relevant_minimax(y, x, my_map, other_map, 0, 2, False)
+                if(sd > best):
+                    move_x, move_y = x, y
+                    best = sd
+    print(timer() - start)
+    return move_y, move_x
+
+
+def alphabeta_move(my_map, other_map):
+    start = timer()
+    best = -WIN_SCORE
+    start = timer()
+    alpha = -WIN_SCORE
+    beta = WIN_SCORE
+    for y in range(len(my_map)):
+        for x in range(len(my_map[y])):
+            if not my_map[y][x] and not other_map[y][x]:
+                sd = alphabeta(y, x, my_map, other_map, 0, 2, alpha, beta, False)
+                if(sd > best):
+                    move_x, move_y = x, y
+                    best = sd
+                alpha = max(alpha, best)
+                if alpha >= beta:
+                    break
+    print(timer() - start)
+    return move_y, move_x
 
 def move(board, col):
     move_x, move_y = 4, 4
@@ -147,32 +237,8 @@ def move(board, col):
             elif board[y][x] != " ":
                 other_map[y][x] = 1
 
-    best = -WIN_SCORE
+    print(minimax_move(my_map, other_map))
+    print(rel_minimax_move(my_map, other_map))
+    print(alphabeta_move(my_map, other_map))
 
-    start = timer()
-    for y in range(len(board)):
-        for x in range(len(board[y])):
-            if not my_map[y][x] and not other_map[y][x]:
-                sd = minimax(y, x, my_map, other_map, 0, 2, False)#score_delta(y, x, my_map, other_map)
-                #print(y, x, sd)
-                #print(sd)
-                if(sd > best):
-                    move_x, move_y = x, y
-                    best = sd
-
-    print(timer() - start)
-    start = timer()
-    for y in range(len(board)):
-        for x in range(len(board[y])):
-            if not my_map[y][x] and not other_map[y][x]:
-                sd = relevant_minimax(y, x, my_map, other_map, 0, 2, False)#score_delta(y, x, my_map, other_map)
-                #print(y, x, sd)
-                #print(sd)
-                if(sd > best):
-                    move_x, move_y = x, y
-                    best = sd
-    print(timer() - start)
-
-    #score_delta(3, 4, my_map, other_map)
-
-    return move_y, move_x
+    return alphabeta_move(my_map, other_map)
