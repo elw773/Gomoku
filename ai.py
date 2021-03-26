@@ -3,7 +3,7 @@ WIN_SCORE = 1000000000000000000000
 
 
 def score_delta(y, x, my_map, other_map):
-    h, w = len(my_map), len(my_map[0])
+    h, w = 8, 8
     pre_score = 0
     post_score = 0
 
@@ -173,8 +173,94 @@ def alphabeta(y, x, my_map, other_map, prev_score, depth, alpha, beta, me):
         return best
 
 
+def rel_alphabeta(y, x, my_map, other_map, prev_score, depth, alpha, beta, me):
+    delta = 0
+    score = prev_score
+    if me:
+        delta = score_delta(y, x, other_map, my_map)
+        score = (0 if delta == WIN_SCORE else prev_score) - delta
+    else:
+        delta = score_delta(y, x, my_map, other_map)
+        score = (0 if delta == WIN_SCORE else prev_score) + delta
+
+    if depth == 0 or score == WIN_SCORE or score == -WIN_SCORE:
+        return score
+
+    if me:
+        other_map[y][x] = 1
+        best = -WIN_SCORE
+        for ny in range(len(my_map)):
+            for nx in range(len(my_map[ny])):
+                if not my_map[ny][nx] and not other_map[ny][nx] and any(my_map[ny+dy][nx+dx] or other_map[ny+dy][nx+dx] for dy, dx in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)) if 0 <= ny+dy < 8 and 0 <= nx+dx < 8):
+                    cur = fast_rel_alphabeta(ny, nx, my_map, other_map, score, depth-1, alpha, beta, False)
+                    best = cur if cur > best else best
+                    alpha = best if best > alpha else alpha
+                    if alpha >= beta:
+                        other_map[y][x] = 0
+                        return best
+        other_map[y][x] = 0
+        return best
+    else:
+        my_map[y][x] = 1
+        best = WIN_SCORE
+        for ny in range(len(my_map)):
+            for nx in range(len(my_map[ny])):
+                if not my_map[ny][nx] and not other_map[ny][nx] and any(my_map[ny+dy][nx+dx] or other_map[ny+dy][nx+dx] for dy, dx in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)) if 0 <= ny+dy < 8 and 0 <= nx+dx < 8):
+                    cur = fast_rel_alphabeta(ny, nx, my_map, other_map, score, depth - 1, alpha, beta, True)
+                    best = cur if cur < best else best
+                    beta = best if best < beta else beta
+                    if beta <= alpha:
+                        my_map[y][x] = 0
+                        return best
+        my_map[y][x] = 0
+        return best
+
+def fast_rel_alphabeta(y, x, my_map, other_map, prev_score, depth, alpha, beta, me):
+    delta = 0
+    score = prev_score
+    if me:
+        delta = score_delta(y, x, other_map, my_map)
+        score = (0 if delta == WIN_SCORE else prev_score) - delta
+    else:
+        delta = score_delta(y, x, my_map, other_map)
+        score = (0 if delta == WIN_SCORE else prev_score) + delta
+
+    if depth == 0 or score == WIN_SCORE or score == -WIN_SCORE:
+        return score
+
+    if me:
+        other_map[y][x] = 1
+        best = -WIN_SCORE
+        for ny in range(8):
+            for nx in range(8):
+                if not my_map[ny][nx] and not other_map[ny][nx] and any(my_map[ny+dy][nx+dx] or other_map[ny+dy][nx+dx] for dy, dx in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)) if 0 <= ny+dy < 8 and 0 <= nx+dx < 8):
+                    cur = fast_rel_alphabeta(ny, nx, my_map, other_map, score, depth-1, alpha, beta, False)
+                    best = cur if cur > best else best
+                    alpha = best if best > alpha else alpha
+                    if alpha >= beta:
+                        other_map[y][x] = 0
+                        return best
+        other_map[y][x] = 0
+        return best
+    else:
+        my_map[y][x] = 1
+        best = WIN_SCORE
+        for ny in range(8):
+            for nx in range(8):
+                if not my_map[ny][nx] and not other_map[ny][nx] and any(my_map[ny+dy][nx+dx] or other_map[ny+dy][nx+dx] for dy, dx in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)) if 0 <= ny+dy < 8 and 0 <= nx+dx < 8):
+                    cur = fast_rel_alphabeta(ny, nx, my_map, other_map, score, depth - 1, alpha, beta, True)
+                    best = cur if cur < best else best
+                    beta = best if best < beta else beta
+                    if beta <= alpha:
+                        my_map[y][x] = 0
+                        return best
+        my_map[y][x] = 0
+        return best
+
+
 def minimax_move(my_map, other_map):
     start = timer()
+    move_x, move_y = 4, 4
     best = -WIN_SCORE
     for y in range(len(my_map)):
         for x in range(len(my_map[y])):
@@ -190,6 +276,7 @@ def minimax_move(my_map, other_map):
 
 def rel_minimax_move(my_map, other_map):
     start = timer()
+    move_x, move_y = 4, 4
     best = -WIN_SCORE
     for y in range(len(my_map)):
         for x in range(len(my_map[y])):
@@ -203,15 +290,15 @@ def rel_minimax_move(my_map, other_map):
 
 
 def alphabeta_move(my_map, other_map):
+    move_x, move_y = 4, 4
     start = timer()
     best = -WIN_SCORE
-    start = timer()
     alpha = -WIN_SCORE
     beta = WIN_SCORE
     for y in range(len(my_map)):
         for x in range(len(my_map[y])):
             if not my_map[y][x] and not other_map[y][x]:
-                sd = alphabeta(y, x, my_map, other_map, 0, 2, alpha, beta, False)
+                sd = alphabeta(y, x, my_map, other_map, 0, 3, alpha, beta, False)
                 if(sd > best):
                     move_x, move_y = x, y
                     best = sd
@@ -221,9 +308,49 @@ def alphabeta_move(my_map, other_map):
     print(timer() - start)
     return move_y, move_x
 
-def move(board, col):
-    move_x, move_y = 4, 4
 
+def rel_alphabeta_move(my_map, other_map):
+    move_x, move_y = 4, 4
+    start = timer()
+    best = -WIN_SCORE
+    alpha = -WIN_SCORE
+    beta = WIN_SCORE
+    for y in range(len(my_map)):
+        for x in range(len(my_map[y])):
+            if not my_map[y][x] and not other_map[y][x] and any(my_map[y+dy][x+dx] or other_map[y+dy][x+dx] for dy, dx in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)) if 0 <= y+dy < 8 and 0 <= x+dx < 8):
+                sd = fast_rel_alphabeta(y, x, my_map, other_map, 0, 3, alpha, beta, False)
+                if(sd > best):
+                    move_x, move_y = x, y
+                    best = sd
+                alpha = best if best > alpha else alpha
+                if alpha >= beta:
+                    break
+    print(timer() - start)
+    return move_y, move_x
+
+def fast_rel_alphabeta_move(my_map, other_map):
+    move_x, move_y = 4, 4
+    start = timer()
+    best = -WIN_SCORE
+    alpha = -WIN_SCORE
+    beta = WIN_SCORE
+    for y in range(len(my_map)):
+        for x in range(len(my_map[y])):
+            if not my_map[y][x] and not other_map[y][x] and any(my_map[y+dy][x+dx] or other_map[y+dy][x+dx] for dy, dx in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)) if 0 <= y+dy < 8 and 0 <= x+dx < 8):
+                sd = fast_rel_alphabeta(y, x, my_map, other_map, 0, 3, alpha, beta, False)
+                if(sd > best):
+                    move_x, move_y = x, y
+                    best = sd
+                alpha = best if best > alpha else alpha
+                if alpha >= beta:
+                    break
+    print(timer() - start)
+    return move_y, move_x
+
+i = 0
+def move(board, col):
+    global i
+    i+=1
     # parse board into two bitmaps for my and opponent colour
     my_map = []
     other_map = []
@@ -237,8 +364,19 @@ def move(board, col):
             elif board[y][x] != " ":
                 other_map[y][x] = 1
 
-    print(minimax_move(my_map, other_map))
-    print(rel_minimax_move(my_map, other_map))
-    print(alphabeta_move(my_map, other_map))
+    #print(rel_alphabeta_move(my_map, other_map))
+    import cProfile
+    cProfile.runctx('rel_alphabeta_move(my_map, other_map)', globals(), locals())
+    import cProfile
+    cProfile.runctx('fast_rel_alphabeta_move(my_map, other_map)', globals(), locals())
 
-    return alphabeta_move(my_map, other_map)
+    move_y, move_x = rel_alphabeta_move(my_map, other_map)
+
+    if(board[move_y][move_x] != ' '):
+        for y in range(len(my_map)):
+            for x in range(len(my_map[y])):
+                if not my_map[y][x] and not other_map[y][x]:
+                    print("I LOST")
+                    return y, x
+
+    return move_y, move_x
