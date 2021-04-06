@@ -1,3 +1,4 @@
+import numpy as np
 WIN_SCORE = 1000000000
 
 def likely_moves(c_bib):
@@ -209,9 +210,8 @@ def do_direction(move_scores, a_bib, o_bib, shift, rs_mask, ls_mask, atm, score_
         win = ((c_b_0 | o_b_0) & f_4) | ((c_f_0 | o_f_0) & b_4) | \
                 (b_1 & f_3) | (f_1 & b_3) | \
                 (b_2 & f_2)
-        for i in range(64):
-            move = 0x1 << i
-            move_scores[i] += score_sign * \
+        for move in move_scores:
+            move_scores[move] += score_sign * \
                                 ((ors[2] if o_2 & move else 0) +
                                 (sors[2] if s_2 & move else 0) +
                                 (ors[3] if o_3 & move else 0) +
@@ -232,9 +232,104 @@ def do_direction(move_scores, a_bib, o_bib, shift, rs_mask, ls_mask, atm, score_
                                 (sors[4] if c_f_4 & move else 0) +
                                 (sors[4] if c_b_4 & move else 0))
     else:
-        for i in range(64):
-            move = 0x1 << i
-            move_scores[i] -= score_sign * \
+        for move in move_scores:
+            move_scores[move] -= score_sign * \
+                            ((ors[2] - sors[2] if o_f_2 & move else 0) +
+                            (ors[2] - sors[2] if o_b_2 & move else 0) +
+                            (sors[2] if c_f_2 & move else 0) +
+                            (sors[2] if c_b_2 & move else 0) +
+                            (ors[3] - sors[3] if o_f_3 & move else 0) +
+                            (ors[3] - sors[3] if o_b_3 & move else 0) +
+                            (sors[3] if c_f_3 & move else 0) +
+                            (sors[3] if c_b_3 & move else 0) +
+                            (ors[4] - sors[4] if o_f_4 & move else 0) +
+                            (ors[4] - sors[4] if o_b_4 & move else 0) +
+                            (sors[4] if c_f_4 & move else 0) +
+                            (sors[4] if c_b_4 & move else 0))
+
+
+
+def do_direction_faster(move_scores, a_bib, o_bib, shift, rs_mask, ls_mask, atm, score_sign):  # atm true: placing on a_bib
+    c_bib = a_bib | o_bib
+
+    f_1 = a_bib >> shift & ~rs_mask & ~c_bib
+    f_2 = f_1 & a_bib >> (shift * 2) & ~(rs_mask >> shift) & ~c_bib
+    f_3 = f_2 & a_bib >> (shift * 3) & ~(rs_mask >> (shift * 2)) & ~c_bib
+    f_4 = f_3 & a_bib >> (shift * 4) & ~(rs_mask >> (shift * 3)) & ~c_bib
+    f_1 = f_1 & ~f_2
+    f_2 = f_2 & ~f_3
+    f_3 = f_3 & ~f_4
+    f_4 = f_4 & (o_bib >> (shift * 5) | ~c_bib >> (shift * 5) | rs_mask >> (shift * 4))
+
+    b_1 = a_bib << shift & ~ls_mask & ~c_bib
+    b_2 = b_1 & a_bib << (shift * 2) & ~(ls_mask << shift) & ~c_bib
+    b_3 = b_2 & a_bib << (shift * 3) & ~(ls_mask << (shift * 2)) & ~c_bib
+    b_4 = b_3 & a_bib << (shift * 4) & ~(ls_mask << (shift * 3)) & ~c_bib
+    b_1 = b_1 & ~b_2
+    b_2 = b_2 & ~b_3
+    b_3 = b_3 & ~b_4
+    b_4 = b_4 & (o_bib << (shift * 5) | ~c_bib << (shift * 5) | rs_mask >> (shift * 4))
+
+    o_f_0 = ~c_bib >> shift & ~rs_mask & ~c_bib
+    c_f_0 = (o_bib >> shift & ~rs_mask & ~c_bib) | rs_mask
+    o_f_1 = f_1 & ~(c_bib >> (shift * 2)) & ~(rs_mask >> (shift))
+    c_f_1 = f_1 & ~o_f_1
+    o_f_2 = f_2 & ~(c_bib >> (shift * 3)) & ~(rs_mask >> (shift * 2))
+    c_f_2 = f_2 & ~o_f_2
+    o_f_3 = f_3 & ~(c_bib >> (shift * 4)) & ~(rs_mask >> (shift * 3))
+    c_f_3 = f_3 & ~o_f_3
+    o_f_4 = f_4 & ~(c_bib >> (shift * 5)) & ~(rs_mask >> (shift * 4))
+    c_f_4 = f_4 & ~o_f_4
+    o_b_0 = ~c_bib << shift & ~ls_mask & ~c_bib
+    c_b_0 = (o_bib >> shift & ~ls_mask & ~c_bib) | ls_mask
+    o_b_1 = b_1 & ~(c_bib << (shift * 2)) & ~(ls_mask << (shift))
+    c_b_1 = b_1 & ~o_b_1
+    o_b_2 = b_2 & ~(c_bib << (shift * 3)) & ~(ls_mask << (shift * 2))
+    c_b_2 = b_2 & ~o_b_2
+    o_b_3 = b_3 & ~(c_bib << (shift * 4)) & ~(ls_mask << (shift * 3))
+    c_b_3 = b_3 & ~o_b_3
+    o_b_4 = b_4 & ~(c_bib << (shift * 5)) & ~(ls_mask << (shift * 4))
+    c_b_4 = b_4 & ~o_b_4
+
+    if atm:
+        o_2 = (o_b_0 & o_f_1) | (o_f_0 & o_b_1)
+        s_2 = (o_b_0 & c_f_1) | (o_f_0 & c_b_1) | (c_b_0 & o_f_1) | (c_f_0 & o_b_1)
+        o_3 = (o_b_0 & o_f_2) | (o_f_0 & o_b_2) | \
+                (o_b_1 & o_f_1)
+        s_3 = (o_b_0 & c_f_2) | (o_f_0 & c_b_2) | (c_b_0 & o_f_2) | (c_f_0 & o_b_2) | \
+                (c_b_1 & o_f_1) | (o_b_1 & c_f_1)
+        o_4 = (o_b_0 & o_f_3) | (o_f_0 & o_b_3) | \
+                (o_b_1 & o_f_2) | (o_f_1 & o_b_2)
+        s_4 = (o_b_0 & c_f_3) | (o_f_0 & c_b_3) | (c_b_0 & o_f_3) | (c_f_0 & o_b_3) | \
+                (c_b_1 & o_f_2) | (c_f_1 & o_b_2) | (o_b_1 & c_f_2) | (o_f_1 & c_b_2)
+        win = ((c_b_0 | o_b_0) & f_4) | ((c_f_0 | o_f_0) & b_4) | \
+                (b_1 & f_3) | (f_1 & b_3) | \
+                (b_2 & f_2)
+
+        for move in move_scores:
+            move_scores[move] += score_sign * \
+                                ((ors[2] if o_2 & move else 0) +
+                                (sors[2] if s_2 & move else 0) +
+                                (ors[3] if o_3 & move else 0) +
+                                (sors[3] if s_3 & move else 0) +
+                                (ors[4] if o_4 & move else 0) +
+                                (sors[4] if s_4 & move else 0) +
+                                (5*WIN_SCORE if win & move else 0)) - \
+                                ((ors[2] if o_f_2 & move else 0) +  # we need to subtract the score that the rows made before
+                                (ors[2] if o_b_2 & move else 0) +
+                                (sors[2] if c_f_2 & move else 0) +
+                                (sors[2] if c_b_2 & move else 0) +
+                                (ors[3] if o_f_3 & move else 0) +
+                                (ors[3] if o_b_3 & move else 0) +
+                                (sors[3] if c_f_3 & move else 0) +
+                                (sors[3] if c_b_3 & move else 0) +
+                                (ors[4] if o_f_4 & move else 0) +
+                                (ors[4] if o_b_4 & move else 0) +
+                                (sors[4] if c_f_4 & move else 0) +
+                                (sors[4] if c_b_4 & move else 0))
+    else:
+        for move in move_scores:
+            move_scores[move] -= score_sign * \
                             ((ors[2] - sors[2] if o_f_2 & move else 0) +
                             (ors[2] - sors[2] if o_b_2 & move else 0) +
                             (sors[2] if c_f_2 & move else 0) +
@@ -253,9 +348,8 @@ def do_direction(move_scores, a_bib, o_bib, shift, rs_mask, ls_mask, atm, score_
 # -0xffffc3c3c3c40000 all bits except outside 2
 def make_children(m_bib, o_bib, mtm, prev_score, scores):  # mtm true if i am moving
     c_bib = m_bib | o_bib
-    move_scores = [prev_score] * 64
+    move_scores = {(0x1 << i): prev_score for i in range(64) if (~c_bib) & (0x1 << i)}
     #sign = 1 #if mtm else -1
-    # TODO: masks are all wrong for diagonals
     # top and right 0x80808080808080ff
     # bottom and left 0xff01010101010101
     # top and left 0x1010101010101ff
@@ -274,22 +368,58 @@ def make_children(m_bib, o_bib, mtm, prev_score, scores):  # mtm true if i am mo
     do_direction(move_scores, o_bib, m_bib, 8, 0xff00000000000000, 0xff, not mtm, -1)
 
     children = []
-    for i in range(64):
-        if (~c_bib) & (0x1 << i):
-            if mtm:
-                child = bibs_to_pos(m_bib | 0x1 << i, o_bib)
-            else:
-                child = bibs_to_pos(m_bib, o_bib | 0x1 << i)
-            score = move_scores[i]
-            if score >= WIN_SCORE:
-                score = WIN_SCORE
-            elif score <= -WIN_SCORE:
-                score = -WIN_SCORE
-            scores[child] = score
-            children.append(child)
+    for move in move_scores:
+        if mtm:
+            child = bibs_to_pos(m_bib | move, o_bib)
+        else:
+            child = bibs_to_pos(m_bib, o_bib | move)
+        score = move_scores[move]
+        if score >= WIN_SCORE:
+            score = WIN_SCORE
+        elif score <= -WIN_SCORE:
+            score = -WIN_SCORE
+        scores[child] = score
+        children.append(child)
     children.sort(key=lambda c: scores[c], reverse=mtm)
     return children
 
+def make_children_faster(m_bib, o_bib, mtm, prev_score, scores):  # mtm true if i am moving
+    c_bib = m_bib | o_bib
+    move_scores = {(0x1 << i): prev_score for i in range(64) if (~c_bib) & (0x1 << i)}
+    #sign = 1 #if mtm else -1
+    # TODO: masks are all wrong for diagonals
+    # top and right 0x80808080808080ff
+    # bottom and left 0xff01010101010101
+    # top and left 0x1010101010101ff
+    # bottom and right 0xff80808080808080
+    # horizontal
+    do_direction_faster(move_scores, m_bib, o_bib, 1, 0x8080808080808080, 0x101010101010101, mtm, 1)
+    do_direction_faster(move_scores, o_bib, m_bib, 1, 0x8080808080808080, 0x101010101010101, not mtm, -1)
+    # diagu
+    do_direction_faster(move_scores, m_bib, o_bib, 7, 0x80808080808080ff, 0xff01010101010101, mtm, 1)
+    do_direction_faster(move_scores, o_bib, m_bib, 7, 0x80808080808080ff, 0xff01010101010101, not mtm, -1)
+    # diagd
+    do_direction_faster(move_scores, m_bib, o_bib, 9, 0xff80808080808080, 0x1010101010101ff, mtm, 1)
+    do_direction_faster(move_scores, o_bib, m_bib, 9, 0xff80808080808080, 0x1010101010101ff, not mtm, -1)
+    # vertical
+    do_direction_faster(move_scores, m_bib, o_bib, 8, 0xff00000000000000, 0xff, mtm, 1)
+    do_direction_faster(move_scores, o_bib, m_bib, 8, 0xff00000000000000, 0xff, not mtm, -1)
+
+    children = []
+    for move in move_scores:
+        if mtm:
+            child = bibs_to_pos(m_bib | move, o_bib)
+        else:
+            child = bibs_to_pos(m_bib, o_bib | move)
+        score = move_scores[move]
+        if score >= WIN_SCORE:
+            score = WIN_SCORE
+        elif score <= -WIN_SCORE:
+            score = -WIN_SCORE
+        scores[child] = score
+        children.append(child)
+    children.sort(key=lambda c: scores[c], reverse=mtm)
+    return children
 
     #c_bib = m_bib | o_bib
     #ones = (((c_bib << 1 | c_bib << 9 | c_bib >> 7) & -0x101010101010102) |
@@ -623,17 +753,22 @@ if __name__ == '__main__':
 #        if scores[child] != score_bib(m_bib, o_bib) - score_bib(o_bib, m_bib):
 #            print_board(pos_to_board(child))
 #            print("Score:", scores[child], "vs", score_bib(m_bib, o_bib) - score_bib(o_bib, m_bib))
+    import cProfile
+    def f():
+        for i in range(1000):
+            scores = {}
+            make_children_faster(m_bib, o_bib, True, 0, scores)
+    cProfile.runctx('f()', globals(), locals())
 
+    move_scores = {}
     start = timer()
-    x = 7
-    y = 5
     for i in range(1000):
-        c = x << 5
-    print((timer()-start)/1000.0, c)
+        do_all_directions_numpy(move_scores, m_bib, o_bib, True, 1)
+    print("do_all_directions_numpy", (timer()-start)/1000.0)
 
+    move_scores = {}
     start = timer()
-    x = 7
-    y = 5
-    for i in range(1000):
-        c = x * (2**5)
-    print((timer()-start)/1000.0, c)
+    for i in range(4000):
+        do_direction(move_scores, m_bib, o_bib, 1, 0x8080808080808080, 0x101010101010101, True, 1)
+        do_direction(move_scores, o_bib, m_bib, 1, 0x8080808080808080, 0x101010101010101, False, -1)
+    print("do_direction", (timer()-start)/1000.0)
