@@ -14,6 +14,7 @@ visited_children = {}  # set for easy lookup
 unvisited_children = {}  # list for better iteration
 wins = {}  # each node has its wins
 visits = {}  # each node stores its visits
+scores = {}
 
 
 def ubc(pos):
@@ -46,7 +47,7 @@ def rollout(pos, mtm):  # return True for win or tie
                 move = random_move(my_bib | other_bib)
                 other_bib = other_bib | 0x1 << move
         mtm = not mtm
-    return True
+    return False
 
 
 def select(pos, mtm):
@@ -56,12 +57,19 @@ def select(pos, mtm):
     return pos, mtm
 
 
+def score(pos, mtm):
+    if pos in scores:
+        return scores[pos]
+    score = scores[pos] = gbib.score(pos, mtm)
+    return score
+
+
 def expand(pos, mtm):
     my_bib, other_bib = gbib.pos_to_bibs(pos)
     if gbib.is_tie(my_bib | other_bib) or gbib.is_win(my_bib) or gbib.is_win(other_bib):
         return pos, mtm
     else:
-        if pos not in unvisited_children:  # if i have not created children for this position
+        if pos not in unvisited_children and pos not in visited_children:  # if i have not created children for this position
             if mtm:
                 children = [pos | (0x1 << m + 64) for m in gbib.likely_moves(my_bib | other_bib)]
             else:
@@ -74,7 +82,7 @@ def expand(pos, mtm):
                     parentss[child] = [pos]
         else:
             children = unvisited_children[pos]
-        return max(children, key=lambda c: gbib.score(c, mtm)), not mtm  # if we choose the best one to expand on, profit
+        return max(children, key=lambda c: score(c, mtm)), not mtm  # if we choose the best one to expand on, profit
         #return children[int(random.random() * len(children))], mtm
 
 
@@ -86,7 +94,8 @@ def add_to_visited(parent, pos):
 
 def remove_from_unvisited(parent, pos):
     if parent in unvisited_children:
-        unvisited_children[parent].remove(pos)
+        if pos in unvisited_children[parent]:
+            unvisited_children[parent].remove(pos)
         if not unvisited_children[parent]:  # if there are no more unvisited children
             del unvisited_children[parent]
 
@@ -104,15 +113,13 @@ def backpropogate(pos, mtm, res):
     if pos in visits:
         visits[pos] += 1
         wins[pos] += 1 if (mtm == res) else 0
-        for parent in parents:
-            backpropogate(parent, not mtm, res)
     else:
         visits[pos] = 1
         wins[pos] = 1 if (mtm == res) else 0
-        for parent in parents:
-            add_to_visited(parent, pos)
-            remove_from_unvisited(parent, pos)
-            backpropogate(parent, not mtm, res)
+    for parent in parents:
+        add_to_visited(parent, pos)
+        remove_from_unvisited(parent, pos)
+        backpropogate(parent, not mtm, res)
 
 
 def make_forced_move(board):
@@ -129,23 +136,28 @@ def move(board, col):
 
     my_bib, other_bib = gbib.make_bitboards(board, col)
 
+    #gbib.good_moves(my_bib, other_bib)  # NEW
+
     head = gbib.bibs_to_pos(my_bib, other_bib)
     parentss[head] = []
     i = 0
-    while (timer() - start) < 1.9:
+    selected = set()
+    while (timer() - start) < 1.98:
         pos, mtm = select(head, True)
+        selected.add(pos)
         pos, mtm = expand(pos, mtm)
         res = rollout(pos, mtm)
         backpropogate(pos, mtm, res)
         i += 1
 
-    best_pos = max(list(visited_children[head]), key=lambda p: ubc(p))
+    best_pos = max(list(visited_children[head]), key=lambda p: visits[p])
+
     move_bib = gbib.pos_to_cbib(head ^ best_pos)
 
     move_y, move_x = gbib.move_bib_to_yx(move_bib)
 
     if(board[move_y][move_x] != ' '):
-        move_y, move_x = make_forced_move
+        move_y, move_x = make_forced_move(board)
 
     print("mcts:", i, "\t", timer() - start)
     #print("parents", len(parentss))

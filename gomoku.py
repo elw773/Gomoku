@@ -185,7 +185,9 @@ def place_random(board, col):
 
 
 def play_gomoku(board_size):
+    import mcts
     import ai
+    import dynamicalphabeta
     board = make_empty_board(board_size)
     board_height = len(board)
     board_width = len(board[0])
@@ -200,7 +202,7 @@ def play_gomoku(board_size):
             move_y = board_height // 2
             move_x = board_width // 2
         else:
-            move_y, move_x = search_max(board)
+            move_y, move_x = ai.move(board, 'b')#search_max(board)
 
         print("Computer move: (%d, %d)" % (move_y, move_x))
         #print(ai.move(board, "b"))
@@ -212,16 +214,17 @@ def play_gomoku(board_size):
         if game_res in ["White won", "Black won", "Draw"]:
             return game_res
 
-
-
-        print("Your move:")
-        move_y, move_x = ai.move(board, "w")
-        print(move_y, move_x)
+        import cProfile
+        #cProfile.runctx('mcts.move(board, "w")', globals(), locals())
+        cProfile.runctx('dynamicalphabeta.move(board, "w")', globals(), locals())
+        move_y, move_x = dynamicalphabeta.move(board, "w")
+        print("My move: (%d, %d)" % (move_y, move_x))
+        #print(move_y, move_x)
         #move_y = int(input("y coord: "))
         #move_x = int(input("x coord: "))
         board[move_y][move_x] = "w"
-        print_board(board)
         #analysis(board)
+        print_board(board)
 
         game_res = is_win(board)
         if game_res in ["White won", "Black won", "Draw"]:
