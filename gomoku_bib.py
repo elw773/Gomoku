@@ -1,4 +1,4 @@
-import numpy as np
+#import numpy as np
 WIN_SCORE = 1000000000
 
 def likely_moves(c_bib):
@@ -210,6 +210,7 @@ def do_direction(move_scores, a_bib, o_bib, shift, rs_mask, ls_mask, atm, score_
         win = ((c_b_0 | o_b_0) & f_4) | ((c_f_0 | o_f_0) & b_4) | \
                 (b_1 & f_3) | (f_1 & b_3) | \
                 (b_2 & f_2)
+        #move = 0x1
         for move in move_scores:
             move_scores[move] += score_sign * \
                                 ((ors[2] if o_2 & move else 0) +
@@ -232,6 +233,7 @@ def do_direction(move_scores, a_bib, o_bib, shift, rs_mask, ls_mask, atm, score_
                                 (sors[4] if c_f_4 & move else 0) +
                                 (sors[4] if c_b_4 & move else 0))
     else:
+        #move = 0x1
         for move in move_scores:
             move_scores[move] -= score_sign * \
                             ((ors[2] - sors[2] if o_f_2 & move else 0) +
@@ -305,7 +307,6 @@ def do_direction_faster(move_scores, a_bib, o_bib, shift, rs_mask, ls_mask, atm,
         win = ((c_b_0 | o_b_0) & f_4) | ((c_f_0 | o_f_0) & b_4) | \
                 (b_1 & f_3) | (f_1 & b_3) | \
                 (b_2 & f_2)
-
         for move in move_scores:
             move_scores[move] += score_sign * \
                                 ((ors[2] if o_2 & move else 0) +
@@ -537,6 +538,7 @@ def count_open_semi_open(bib, c_bib, b_shift, f_shift, b_mask, f_mask):
 # 0x4040404040404040 bits in col 6
 # 0x202020202020202 all bits in col 1
 # 0x2020202020202020 all bits in col 5
+# 0x1010101010101010 all bits in col 4
 # 0xff all bits in row 0
 # 0xff00 all bits in row 1
 # 0xff0000000000 all bits in row 5
@@ -617,6 +619,37 @@ def score_bib(m_bib, o_bib):
 
     return (s_2*sors[2]) + (o_2*ors[2]) + (s_3*sors[3]) + (o_3*ors[3]) + (s_4*sors[4]) + (o_4*ors[4])
 
+# w1×(five-in-row) + w2× (straight-four) + w3×(four-in-row) + w4×(three-in-row) + w5×(broken-three) + w6×(two-in-row) + w7×(single marks)
+def simple_score(pos, mtm): # mtm true if i am going to move
+    if is_tie(pos):
+        return 0
+
+    m_bib, o_bib = pos_to_bibs(pos)
+    c_bib = m_bib | o_bib
+    # HORIZONTAL
+    # five in a row
+    five_in_row = ((m_bib) & (m_bib >> 1) & (m_bib >> 2) & (m_bib >> 3) & (m_bib >> 4)) & -0xf0f0f0f0f0f0f0f1
+    five_in_row = five_in_row & ~(five_in_row >> 1) & ~(five_in_row << 1)  # ensure it is only 5
+
+    # four in a row
+    four_in_row = ((m_bib) & (m_bib >> 1) & (m_bib >> 2) & (m_bib >> 3)) & -0xe0e0e0e0e0e0e0e1
+    open_four_in_row = (four_in_row) & ~((c_bib << 1) | 0x101010101010101) & ~ ((c_bib >> 4) | 0x1010101010101010)  # make sure it is semi open
+    semi_four_in_row = (four_in_row) & (((c_bib << 1) | 0x101010101010101) ^ ((c_bib >> 4) | 0x1010101010101010))  # make sure it is semi open
+    #print_board(bib_to_board(open_four_in_row, 0))
+    #print_board(bib_to_board(semi_four_in_row, 0))
+
+    # three in a row
+    three_in_row = ((m_bib) & (m_bib >> 1) & (m_bib >> 2)) & -0xc0c0c0c0c0c0c0c1
+    # ensure it is only 3
+
+    # broken three
+    f_broken_three = ((m_bib) & ~(c_bib >> 1) & (m_bib >> 2) & (m_bib >> 3)) & -0xe0e0e0e0e0e0e0e1
+    b_broken_three = ((m_bib) & (m_bib >> 1) & ~(c_bib >> 2) & (m_bib >> 3)) & -0xe0e0e0e0e0e0e0e1
+
+    # two
+
+
+
 
 def score(pos, mtm):  # mtm is true if i am scoring for me, if i just moved
     if mtm:
@@ -687,6 +720,18 @@ def make_bitboards(board, col):
     return m_bib, o_bib
 
 
+def make_pos(board, col):
+    pos = 0x00000000000000000000000000000000
+
+    for y in range(len(board)):
+        for x in range(len(board[y])):
+            if board[y][x] == col:
+                pos |= 0x01 << (x + y * 8) + 64
+            elif board[y][x] != " ":
+                pos |= 0x01 << (x + y * 8)
+    return pos
+
+
 def bib_to_board(w_bib, b_bib):
     board = []
     i = 0
@@ -712,9 +757,11 @@ def bibs_to_pos(m_bib, o_bib):
 
 def move_bib_to_yx(move_bib):
     move = 0
-    while not move_bib & 0x1:
+    while not move_bib & 0x1 and move < 64:
         move += 1
         move_bib = move_bib >> 1
+    if move >= 64:
+        return 0, 0
     return move // 8, move % 8
 
 
@@ -732,10 +779,17 @@ if __name__ == '__main__':
     for i in range(10):
         board[random.randrange(0, 8)][random.randrange(0, 8)] = 'w'
         board[random.randrange(0, 8)][random.randrange(0, 8)] = 'b'
-    #board[1][1] = 'w'
-    #board[0][1] = 'w'
-    #board[0][2] = 'w'
+    #board[0][7] = 'w'
+    #board[1][2] = 'w'
+    #board[1][3] = 'w'
+    #board[1][4] = 'w'
+    #board[1][5] = 'w'
+    #board[1][1] = 'b'
+    #board[1][6] = 'b'
+
     print_board(board)
+    pos = make_pos(board, 'w')
+    simple_score(pos, True)
     m_bib, o_bib = make_bitboards(board, 'w')
     score = score_bib(m_bib, o_bib) - score_bib(o_bib, m_bib)
     print(score)
@@ -757,18 +811,47 @@ if __name__ == '__main__':
     def f():
         for i in range(1000):
             scores = {}
-            make_children_faster(m_bib, o_bib, True, 0, scores)
+            make_children(m_bib, o_bib, True, 0, scores)
     cProfile.runctx('f()', globals(), locals())
 
-    move_scores = {}
+    move_scores = {(0x1 << i): 0 for i in range(64) if (~m_bib) & (0x1 << i)}
     start = timer()
+    t = 0
+    x = 8
+    s = 7
     for i in range(1000):
-        do_all_directions_numpy(move_scores, m_bib, o_bib, True, 1)
-    print("do_all_directions_numpy", (timer()-start)/1000.0)
+        for move in move_scores:
+            t += 5 * (x >> s & 0x1)
+        for move in move_scores:
+            t += 5 * (x >> s & 0x1)
+        for move in move_scores:
+            t += 5 * (x >> s & 0x1)
+        for move in move_scores:
+            t += 5 * (x >> s & 0x1)
+        for move in move_scores:
+            t += 5 * (x >> s & 0x1)
+        for move in move_scores:
+            t += 5 * (x >> s & 0x1)
+        for move in move_scores:
+            t += 5 * (x >> s & 0x1)
+        for move in move_scores:
+            t += 5 * (x >> s & 0x1)
 
-    move_scores = {}
+    print((timer()-start))
+
     start = timer()
-    for i in range(4000):
-        do_direction(move_scores, m_bib, o_bib, 1, 0x8080808080808080, 0x101010101010101, True, 1)
-        do_direction(move_scores, o_bib, m_bib, 1, 0x8080808080808080, 0x101010101010101, False, -1)
-    print("do_direction", (timer()-start)/1000.0)
+    t = 0
+    x = 8
+    s = 7
+    for i in range(1000):
+        for move in move_scores:
+            t += 5 * (x >> s & 0x1)
+            t += 5 * (x >> s & 0x1)
+            t += 5 * (x >> s & 0x1)
+            t += 5 * (x >> s & 0x1)
+            t += 5 * (x >> s & 0x1)
+            t += 5 * (x >> s & 0x1)
+            t += 5 * (x >> s & 0x1)
+            t += 5 * (x >> s & 0x1)
+
+    print((timer()-start))

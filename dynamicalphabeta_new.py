@@ -11,7 +11,7 @@ WIN_SCORE = gbib.WIN_SCORE
 #depth = {}  # the depth of each move, so we dont waste time
 childrens = {}  # list of potential moves for a combined board, sorted in terms of bestness for the mover
 scores = {}
-mmx_scores = {}
+mmx_score = {}
 #alpha = {}
 #beta = {}
 
@@ -51,46 +51,43 @@ def get_children(pos, mtm):  # mtm is true if the children will be the result of
 
 # me is true if finding the best move for me
 # me is false if finding the best move for other
+quits = {1: [], 2: [], 3: [], 4: [], 5: [], 6: []}
 s = 0
 def alphabeta(pos, depth, alpha, beta, me):
     global s
-    #print(hex(pos), depth, alpha, beta, me, end = "\r")
+    #print(hex(pos), depth, alpha, beta, me, scores[pos], end = "\r")
+    #gbib.print_board(gbib.pos_to_board(pos))
     if depth == 0 or scores[pos] == WIN_SCORE or scores[pos] == -WIN_SCORE or gbib.is_tie(pos):
         s += 1
         return scores[pos]
 
     if me:
         best = -WIN_SCORE
-        children = get_children(pos, True)[0:10]
+        children = get_children(pos, True)[0:5]
+        i = 0
         for n_pos in children:
             val = alphabeta(n_pos, depth-1, alpha, beta, False)
-            mmx_scores[n_pos] = val
             best = val if val > best else best
             alpha = best if best > alpha else alpha
             if alpha >= beta:
-                childrens[pos].sort(key=lambda c: scores[c] if c not in mmx_scores else 100*mmx_scores[c], reverse=me)
+                quits[depth].append(i)
                 return best
-        childrens[pos].sort(key=lambda c: scores[c] if c not in mmx_scores else 100*mmx_scores[c], reverse=me)
+            i += 1
+        quits[depth].append(i)
         return best
     else:
         best = WIN_SCORE
-        children = get_children(pos, False)[0:10]
-        #print(scores[children[0]], "vs", scores[children[-1]])
-        #if WIN_SCORE >= scores[children[0]] >= WIN_SCORE - 10000 or -WIN_SCORE <= scores[children[0]] <= -WIN_SCORE + 10000:
-        #    gbib.print_board(gbib.pos_to_board(pos))
-            #print("Score:", scores[pos])
-            #for child in children:
-            #    gbib.print_board(gbib.pos_to_board(pos))
-            #    print("Score:", scores[pos])
+        children = get_children(pos, False)[0:5]
+        i = 0
         for n_pos in children:
             val = alphabeta(n_pos, depth - 1, alpha, beta, True)
-            mmx_scores[n_pos] = val
             best = val if val < best else best
             beta = best if best < beta else beta
             if beta <= alpha:
-                childrens[pos].sort(key=lambda c: scores[c] if c not in mmx_scores else 100*mmx_scores[c], reverse=me)
+                quits[depth].append(i)
                 return best
-        childrens[pos].sort(key=lambda c: scores[c] if c not in mmx_scores else 100*mmx_scores[c], reverse=me)
+            i += 1
+        quits[depth].append(i)
         return best
 
 
@@ -98,13 +95,15 @@ def make_forced_move(board):
     for y in range(8):
         for x in range(8):
             if board[y][x] == ' ':
-                print("I LOST")
+                #print("I LOST")
                 return y, x
 
 first = True
 def move(board, col):
     global s
     global first
+    global quits
+    quits = {1: [], 2: [], 3: [], 4: [], 5: [], 6: []}
     s = 0.0001
     start = timer()
 
@@ -118,13 +117,12 @@ def move(board, col):
     best = -WIN_SCORE
     alpha = -WIN_SCORE
     beta = WIN_SCORE
-    depth = 4
+    depth = 6
     best_pos = head
     children = get_children(head, True)
-    #l = len(children)
-    #i = 0
+    i = 0
     for n_pos in children:
-        #print(i, "/", l, hex(n_pos), end = "\r")
+        #print(i, end = "\r")
         val = alphabeta(n_pos, depth-1, alpha, beta, False)
         if val > best:
             best = val
@@ -132,15 +130,29 @@ def move(board, col):
         alpha = best if best > alpha else alpha
         if alpha >= beta:
             break
-        #i += 1
-
+        i += 1
+    quits[depth].append(i)
     move_bib = gbib.pos_to_cbib(head ^ best_pos)
 
     move_y, move_x = gbib.move_bib_to_yx(move_bib)
 
     if(board[move_y][move_x] != ' '):
         move_y, move_x = make_forced_move(board)
-    print("dab:", "s:", s, "\tt:", timer() - start, (timer() - start) / s, len(scores), len(childrens))
+    try:
+        #print("dabn:", "s:", s, "\tt:", timer() - start, (timer() - start) / s, len(scores), len(childrens))
+        #print(list(sum(quits[depth])/len(quits[depth]) if quits[depth] else -1 for depth in quits))
+        pass
+    except ZeroDivisionError as e:
+        print(children)
+        for n_pos in children:
+            val = alphabeta(n_pos, depth-1, alpha, beta, False)
+            if val > best:
+                best = val
+                best_pos = n_pos
+            alpha = best if best > alpha else alpha
+            if alpha >= beta:
+                break
+        raise e
 
     return move_y, move_x
 
