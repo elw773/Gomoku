@@ -1,5 +1,5 @@
 # Gomoku
- AI for 2021 ESC190 Gomoku Competition (unfortunately was never run)
+ AI for 2021 ESC190 Gomoku Competition (unfortunately the tournament was never run)
  
  The AI plays 8x8 gomoku, implemented in [gomoku.py](gomoku.py) \
  [standard_ai.py](standard_ai.py) and [blitz_ai.py](blitz_ai.py) are very similar, but designed to return moves in 2.0 seconds and 0.2 seconds respectively. 
